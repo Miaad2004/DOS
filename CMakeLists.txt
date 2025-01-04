@@ -1,4 +1,7 @@
-﻿cmake_minimum_required (VERSION 3.8)
+﻿# CMakeList.txt : CMake project for CMakeProject1, include source and define
+# project specific logic here.
+#
+cmake_minimum_required (VERSION 3.8)
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
@@ -6,11 +9,14 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project ("DOS" LANGUAGES C) 
+project ("CMakeProject1")
 
-# Set the C standard
-set(CMAKE_C_STANDARD 99) 
-set(CMAKE_C_STANDARD_REQUIRED True)
+# Add source to this project's executable.
+include_directories(${CMAKE_SOURCE_DIR}/include)
+add_executable (CMakeProject1 "main.cpp"  "dos_shell.cpp" "file_system.cpp" "memory_manager.cpp")
 
-# Add the source and test directories
-add_subdirectory(src)
+if (CMAKE_VERSION VERSION_GREATER 3.12)
+  set_property(TARGET CMakeProject1 PROPERTY CXX_STANDARD 20)
+endif()
+
+# TODO: Add tests and install targets if needed.

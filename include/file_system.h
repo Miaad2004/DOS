@@ -1,12 +1,20 @@
-#ifndef FILE_SYSTEM_H
-#define FILE_SYSTEM_H
+#pragma once
+#include <string>
+#include <vector>
+#include "memory_manager.h"
 
-// Core filesystem functions
-void init_filesystem();
-void cleanup_filesystem();
-void format_disk();
+class FileNode
+{
+public:
+    std::string name;
+    bool isDirectory;
+    std::vector<FileNode*> children;
+    char* content;
+    MemoryManager* memManager;
+    FileNode* parent;
 
-// File operations
-int create_file(const char* filename);
+    FileNode(std::string n, bool isDir, MemoryManager* mm, FileNode* p = nullptr);
+    ~FileNode();
+};
 
-#endif // FILE_SYSTEM_H
+bool isValidFilename(const std::string& name);
