@@ -23,6 +23,9 @@ private:
     FileNode* root;
     MemoryManager memManager;
     std::map<std::string, std::string> environment; // For environment variables
+    std::string expandVariables(const std::string& input);
+
+    
 
     bool isValidCommand(const std::string& cmd);
     void showHelp();

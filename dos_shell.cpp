@@ -763,10 +763,75 @@ void DOSShell::findInFiles(const std::string& searchStr, const std::string& file
     }
 }
 
+// Add helper trim function
+std::string trim(const std::string& str) {
+    size_t first = str.find_first_not_of(" \t");
+    size_t last = str.find_last_not_of(" \t");
+    return str.substr(first, (last - first + 1));
+}
+
+// Update the existing expandVariables() function in dos_shell.cpp:
+std::string DOSShell::expandVariables(const std::string& input) {
+    std::string result = input;
+    size_t pos = 0;
+
+    // Debug input
+    //std::cout << "Expanding variables in: [" << input << "]\n";
+    
+    while ((pos = result.find('%', pos)) != std::string::npos) {
+        size_t endPos = result.find('%', pos + 1);
+        if (endPos != std::string::npos) {
+            // Extract variable name without %
+            std::string varName = result.substr(pos + 1, endPos - pos - 1);
+            varName.erase(0, varName.find_first_not_of(" \t"));
+            varName.erase(varName.find_last_not_of(" \t") + 1);
+            
+            //std::cout << "Found variable reference: [" << varName << "]\n";
+            
+            auto it = environment.find(varName);
+            if (it != environment.end()) {
+                result.replace(pos, endPos - pos + 1, it->second);
+                //std::cout << "Replaced with value: [" << it->second << "]\n";
+                pos += it->second.length();
+            } else {
+                //std::cout << "Variable not found in environment\n";
+                pos = endPos + 1;
+            }
+        } else {
+            break;
+        }
+    }
+
+    //std::cout << "Final expanded result: [" << result << "]\n";
+    return result;
+}
+
 void DOSShell::handleRem(const std::string& comment) {
-    // REM command does nothing - it's just a comment
-    // In a real implementation, you might want to store these
-    // for batch file processing
+    // First trim leading/trailing whitespace from comment
+    std::string trimmedComment = comment;
+    trimmedComment.erase(0, trimmedComment.find_first_not_of(" \t"));
+    trimmedComment.erase(trimmedComment.find_last_not_of(" \t") + 1);
+
+    // Check for SET command
+    if (trimmedComment.substr(0, 3) == "SET") {
+        // Extract everything after "SET"
+        std::string setCmd = trimmedComment.substr(3);
+        setCmd.erase(0, setCmd.find_first_not_of(" \t"));
+        
+        size_t equalPos = setCmd.find('=');
+        if (equalPos != std::string::npos) {
+            std::string varName = setCmd.substr(0, equalPos);
+            std::string varValue = setCmd.substr(equalPos + 1);
+            
+            // Trim both
+            varName.erase(0, varName.find_first_not_of(" \t"));
+            varName.erase(varName.find_last_not_of(" \t") + 1);
+            varValue.erase(0, varValue.find_first_not_of(" \t"));
+            varValue.erase(varValue.find_last_not_of(" \t") + 1);
+            
+            environment[varName] = varValue;
+        }
+    }
 }
 
 void DOSShell::executeBlock(const std::string& block) {
@@ -785,13 +850,8 @@ void DOSShell::executeBlock(const std::string& block) {
 
 void DOSShell::handleIf(std::istringstream& cmdStream) {
     std::string condition;
-    std::string trueBlock;
-    std::string elseBlock;
-    
-    // Read the entire condition
     std::getline(cmdStream, condition, '(');
     
-    // Parse condition
     size_t firstQuote = condition.find('"');
     size_t secondQuote = condition.find('"', firstQuote + 1);
     size_t thirdQuote = condition.find('"', secondQuote + 1);
@@ -806,11 +866,13 @@ void DOSShell::handleIf(std::istringstream& cmdStream) {
     std::string var1 = condition.substr(firstQuote + 1, secondQuote - firstQuote - 1);
     std::string var2 = condition.substr(thirdQuote + 1, fourthQuote - thirdQuote - 1);
     
-    // Read true block
+    var1 = expandVariables(var1);
+    
     std::string remainingCmd;
     std::getline(cmdStream, remainingCmd);
     size_t elsePos = remainingCmd.find("ELSE");
     
+    std::string trueBlock, elseBlock;
     if (elsePos != std::string::npos) {
         trueBlock = remainingCmd.substr(0, remainingCmd.find(")"));
         size_t elseBlockStart = remainingCmd.find("(", elsePos) + 1;
@@ -820,8 +882,8 @@ void DOSShell::handleIf(std::istringstream& cmdStream) {
         trueBlock = remainingCmd.substr(0, remainingCmd.find_last_of(")"));
     }
     
-    // Execute appropriate block
     bool result = (var1 == var2);
+    
     if (result) {
         executeBlock(trueBlock);
     } else if (!elseBlock.empty()) {
