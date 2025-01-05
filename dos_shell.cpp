@@ -184,7 +184,15 @@ void DOSShell::executeCommand(const std::string& cmdLine)
         return;
     }
 
-    if (command == "DIR")
+    if (command == "REM") {
+        std::string comment;
+        std::getline(iss, comment);
+        handleRem(comment);
+    }
+    else if (command == "IF") {
+        handleIf(iss);
+    }
+    else if (command == "DIR")
     {
         listDirectory();
     }
@@ -752,5 +760,71 @@ void DOSShell::findInFiles(const std::string& searchStr, const std::string& file
     
     if (!found) {
         std::cout << "No match found\n";
+    }
+}
+
+void DOSShell::handleRem(const std::string& comment) {
+    // REM command does nothing - it's just a comment
+    // In a real implementation, you might want to store these
+    // for batch file processing
+}
+
+void DOSShell::executeBlock(const std::string& block) {
+    std::istringstream iss(block);
+    std::string cmd;
+    
+    // Get the full command including redirection
+    std::getline(iss, cmd);
+    if (!cmd.empty()) {
+        // Trim whitespace
+        cmd.erase(0, cmd.find_first_not_of(" \t"));
+        cmd.erase(cmd.find_last_not_of(" \t") + 1);
+        executeCommand(cmd);
+    }
+}
+
+void DOSShell::handleIf(std::istringstream& cmdStream) {
+    std::string condition;
+    std::string trueBlock;
+    std::string elseBlock;
+    
+    // Read the entire condition
+    std::getline(cmdStream, condition, '(');
+    
+    // Parse condition
+    size_t firstQuote = condition.find('"');
+    size_t secondQuote = condition.find('"', firstQuote + 1);
+    size_t thirdQuote = condition.find('"', secondQuote + 1);
+    size_t fourthQuote = condition.find('"', thirdQuote + 1);
+    
+    if (firstQuote == std::string::npos || secondQuote == std::string::npos ||
+        thirdQuote == std::string::npos || fourthQuote == std::string::npos) {
+        std::cout << "Invalid IF syntax\n";
+        return;
+    }
+    
+    std::string var1 = condition.substr(firstQuote + 1, secondQuote - firstQuote - 1);
+    std::string var2 = condition.substr(thirdQuote + 1, fourthQuote - thirdQuote - 1);
+    
+    // Read true block
+    std::string remainingCmd;
+    std::getline(cmdStream, remainingCmd);
+    size_t elsePos = remainingCmd.find("ELSE");
+    
+    if (elsePos != std::string::npos) {
+        trueBlock = remainingCmd.substr(0, remainingCmd.find(")"));
+        size_t elseBlockStart = remainingCmd.find("(", elsePos) + 1;
+        size_t elseBlockEnd = remainingCmd.find_last_of(")");
+        elseBlock = remainingCmd.substr(elseBlockStart, elseBlockEnd - elseBlockStart);
+    } else {
+        trueBlock = remainingCmd.substr(0, remainingCmd.find_last_of(")"));
+    }
+    
+    // Execute appropriate block
+    bool result = (var1 == var2);
+    if (result) {
+        executeBlock(trueBlock);
+    } else if (!elseBlock.empty()) {
+        executeBlock(elseBlock);
     }
 }

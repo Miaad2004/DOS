@@ -2,13 +2,14 @@
 #include <string>
 #include "file_system.h"
 #include "memory_manager.h"
+#include <map> // For environment variables
 
 class DOSShell {
 private:
     static constexpr const char* VALID_COMMANDS[] = {
         "DIR", "CD", "MKDIR", "RMDIR", "ECHO", "DEL", "REN",
         "TYPE", "RUN", "HIBERNATE", "RESUME", "HELP", "EXIT", "XCOPY",
-        "DATE", "TIME", "FIND"  
+        "DATE", "TIME", "FIND", "REM", "IF"  // Added REM and IF
     };
 
     struct CustomDateTime {
@@ -21,6 +22,7 @@ private:
     FileNode* currentDir;
     FileNode* root;
     MemoryManager memManager;
+    std::map<std::string, std::string> environment; // For environment variables
 
     bool isValidCommand(const std::string& cmd);
     void showHelp();
@@ -41,6 +43,9 @@ private:
     void handleDate(const std::string& dateStr);
     void handleTime(const std::string& timeStr);
     void findInFiles(const std::string& searchStr, const std::string& filename);
+    void handleRem(const std::string& comment);
+    void handleIf(std::istringstream& cmdStream);
+    void executeBlock(const std::string& block);
 
 public:
     DOSShell();
