@@ -27,6 +27,7 @@ void DOSShell::showHelp()
         << "  DIR              - List directory contents\n"
         << "  CD <dir>         - Change directory\n"
         << "  MKDIR <dir>      - Create directory\n"
+        << "  RMDIR <dir>      - Remove empty directory\n"
         << "  ECHO <text>      - Display text\n"
         << "  ECHO <text> >file- Write text to file\n"
         << "  DEL <file>       - Delete file\n"
@@ -242,6 +243,12 @@ void DOSShell::executeCommand(const std::string& cmdLine)
         iss >> filename;
         runProgram(filename);
     }
+    else if (command == "RMDIR")
+    {
+        std::string dirname;
+        iss >> dirname;
+        removeDirectory(dirname);
+    }
 }
 
 void DOSShell::listDirectory()
@@ -438,4 +445,35 @@ void DOSShell::resume(const std::string& filename)
     }
 
     delete[] pathBuf;
+}
+
+void DOSShell::removeDirectory(const std::string& name) {
+    // Don't allow removing . or ..
+    if (name == "." || name == "..") {
+        std::cout << "Invalid directory name\n";
+        return;
+    }
+
+    auto it = std::find_if(currentDir->children.begin(),
+        currentDir->children.end(),
+        [&](FileNode* n) { return n->name == name; });
+
+    if (it == currentDir->children.end()) {
+        std::cout << "Directory not found\n";
+        return;
+    }
+
+    FileNode* dir = *it;
+    if (!dir->isDirectory) {
+        std::cout << "Not a directory\n";
+        return;
+    }
+
+    if (!dir->children.empty()) {
+        std::cout << "Directory not empty\n";
+        return;
+    }
+
+    delete dir;
+    currentDir->children.erase(it);
 }

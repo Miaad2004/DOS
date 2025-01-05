@@ -6,7 +6,7 @@
 class DOSShell {
 private:
     static constexpr const char* VALID_COMMANDS[] = {
-        "DIR", "CD", "MKDIR", "ECHO", "DEL", "REN",
+        "DIR", "CD", "MKDIR", "RMDIR", "ECHO", "DEL", "REN",
         "TYPE", "RUN", "HIBERNATE", "RESUME", "HELP", "EXIT"
     };
 
@@ -26,6 +26,7 @@ private:
     void deleteFile(const std::string& name);
     void renameFile(const std::string& oldname, const std::string& newname);
     void readFile(const std::string& name);
+    void removeDirectory(const std::string& name);
 
 public:
     DOSShell();
