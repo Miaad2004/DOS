@@ -7,7 +7,7 @@ class DOSShell {
 private:
     static constexpr const char* VALID_COMMANDS[] = {
         "DIR", "CD", "MKDIR", "RMDIR", "ECHO", "DEL", "REN",
-        "TYPE", "RUN", "HIBERNATE", "RESUME", "HELP", "EXIT"
+        "TYPE", "RUN", "HIBERNATE", "RESUME", "HELP", "EXIT", "XCOPY"
     };
 
     FileNode* currentDir;
@@ -27,6 +27,9 @@ private:
     void renameFile(const std::string& oldname, const std::string& newname);
     void readFile(const std::string& name);
     void removeDirectory(const std::string& name);
+    void xcopyCommand(const std::string& source, const std::string& dest);
+    FileNode* findNode(const std::string& path, FileNode* startDir);
+    FileNode* copyNode(FileNode* source, FileNode* destParent);
 
 public:
     DOSShell();

@@ -37,6 +37,7 @@ void DOSShell::showHelp()
         << "  HIBERNATE <file> - Save system state\n"
         << "  RESUME <file>    - Restore system state\n"
         << "  HELP             - Show this help\n"
+        << "  XCOPY src dest   - Copy files/directories recursively\n"
         << "  EXIT             - Exit shell\n";
 }
 
@@ -248,6 +249,15 @@ void DOSShell::executeCommand(const std::string& cmdLine)
         std::string dirname;
         iss >> dirname;
         removeDirectory(dirname);
+    }
+    else if (command == "XCOPY") {
+        std::string source, dest;
+        iss >> source >> dest;
+        if (source.empty() || dest.empty()) {
+            std::cout << "Syntax: XCOPY source destination\n";
+        } else {
+            xcopyCommand(source, dest);
+        }
     }
 }
 
@@ -476,4 +486,93 @@ void DOSShell::removeDirectory(const std::string& name) {
 
     delete dir;
     currentDir->children.erase(it);
+}
+
+FileNode* DOSShell::findNode(const std::string& path, FileNode* startDir) {
+    if (path.empty()) return startDir;
+    
+    std::istringstream pathStream(path);
+    std::string segment;
+    FileNode* current = startDir;
+
+    while (std::getline(pathStream, segment, '\\')) {
+        if (segment == ".") continue;
+        if (segment == "..") {
+            if (current->parent) current = current->parent;
+            continue;
+        }
+
+        bool found = false;
+        for (auto child : current->children) {
+            if (child->name == segment) {
+                current = child;
+                found = true;
+                break;
+            }
+        }
+        if (!found) return nullptr;
+    }
+    return current;
+}
+
+FileNode* DOSShell::copyNode(FileNode* source, FileNode* destParent) {
+    FileNode* newNode = new FileNode(source->name, source->isDirectory, &memManager, destParent);
+    
+    if (!source->isDirectory && source->content) {
+        strncpy(newNode->content, source->content, PAGE_SIZE);
+        memManager.markDirty(newNode->content);
+    }
+
+    // Recursively copy children
+    for (auto child : source->children) {
+        FileNode* newChild = copyNode(child, newNode);
+        newNode->children.push_back(newChild);
+    }
+
+    return newNode;
+}
+
+void DOSShell::xcopyCommand(const std::string& source, const std::string& dest) {
+    // Find source node
+    FileNode* sourceNode = findNode(source, currentDir);
+    if (!sourceNode) {
+        std::cout << "Source not found\n";
+        return;
+    }
+
+    // Find or create destination path
+    std::string destPath = dest;
+    std::string destName = sourceNode->name;
+    size_t lastSep = dest.find_last_of('\\');
+    FileNode* destParent;
+
+    if (lastSep != std::string::npos) {
+        destPath = dest.substr(0, lastSep);
+        destName = dest.substr(lastSep + 1);
+        destParent = findNode(destPath, currentDir);
+    } else {
+        destParent = currentDir;
+        destName = dest;
+    }
+
+    if (!destParent) {
+        std::cout << "Destination path not found\n";
+        return;
+    }
+
+    // Check if destination already exists
+    for (auto child : destParent->children) {
+        if (child->name == destName) {
+            std::cout << "Destination already exists\n";
+            return;
+        }
+    }
+
+    // Create copy
+    FileNode* newNode = copyNode(sourceNode, destParent);
+    newNode->name = destName;
+    destParent->children.push_back(newNode);
+
+    std::cout << "Successfully copied ";
+    std::cout << (sourceNode->isDirectory ? "directory" : "file") << "\n";
 }
