@@ -190,6 +190,7 @@ DOSShell::DOSShell()
 {
     root = new FileNode("C:", true, &memManager);
     currentDir = root;
+    shouldExit = false;  // Initialize exit flag
 
     // Initialize date/time
     dateTime.isCustomDate = false;
@@ -242,6 +243,11 @@ void DOSShell::executeCommand(const std::string &cmdLine)
     if (!isValidCommand(command))
     {
         std::cout << "Bad command or file name\n";
+        return;
+    }
+
+    if (command == "EXIT") {
+        shouldExit = true;
         return;
     }
 
