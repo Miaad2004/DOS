@@ -38,6 +38,8 @@ void DOSShell::showHelp()
         << "  RESUME <file>    - Restore system state\n"
         << "  HELP             - Show this help\n"
         << "  XCOPY src dest   - Copy files/directories recursively\n"
+        << "  DATE [MM-DD-YYYY]- Display/set system date\n"
+        << "  TIME [HH:MM:SS]  - Display/set system time\n"
         << "  EXIT             - Exit shell\n";
 }
 
@@ -126,6 +128,19 @@ DOSShell::DOSShell()
 {
     root = new FileNode("C:", true, &memManager);
     currentDir = root;
+    
+    // Initialize date/time
+    dateTime.isCustomDate = false;
+    dateTime.isCustomTime = false;
+    
+    time_t now = time(nullptr);
+    struct tm* timeinfo = localtime(&now);
+    dateTime.month = timeinfo->tm_mon + 1;
+    dateTime.day = timeinfo->tm_mday;
+    dateTime.year = timeinfo->tm_year + 1900;
+    dateTime.hour = timeinfo->tm_hour;
+    dateTime.min = timeinfo->tm_min;
+    dateTime.sec = timeinfo->tm_sec;
 }
 
 // Move getCurrentPath() to public section
@@ -258,6 +273,16 @@ void DOSShell::executeCommand(const std::string& cmdLine)
         } else {
             xcopyCommand(source, dest);
         }
+    }
+    else if (command == "DATE") {
+        std::string dateStr;
+        std::getline(iss >> std::ws, dateStr);
+        handleDate(dateStr);
+    }
+    else if (command == "TIME") {
+        std::string timeStr;
+        std::getline(iss >> std::ws, timeStr);
+        handleTime(timeStr);
     }
 }
 
@@ -575,4 +600,90 @@ void DOSShell::xcopyCommand(const std::string& source, const std::string& dest) 
 
     std::cout << "Successfully copied ";
     std::cout << (sourceNode->isDirectory ? "directory" : "file") << "\n";
+}
+
+void DOSShell::handleDate(const std::string& dateStr)
+{
+    if (dateStr.empty()) {
+        char buffer[11];
+        if (dateTime.isCustomDate) {
+            sprintf(buffer, "%02d-%02d-%04d", 
+                dateTime.month, dateTime.day, dateTime.year);
+        } else {
+            time_t now = time(nullptr);
+            struct tm* timeinfo = localtime(&now);
+            strftime(buffer, sizeof(buffer), "%m-%d-%Y", timeinfo);
+        }
+        std::cout << "Current date is: " << buffer << std::endl;
+        return;
+    }
+
+    // Validate and parse date format MM-DD-YYYY
+    if (dateStr.length() != 10 || dateStr[2] != '-' || dateStr[5] != '-') {
+        std::cout << "Invalid date format. Use MM-DD-YYYY\n";
+        return;
+    }
+
+    try {
+        int month = std::stoi(dateStr.substr(0, 2));
+        int day = std::stoi(dateStr.substr(3, 2));
+        int year = std::stoi(dateStr.substr(6, 4));
+
+        if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) {
+            std::cout << "Invalid date values\n";
+            return;
+        }
+
+        dateTime.month = month;
+        dateTime.day = day;
+        dateTime.year = year;
+        dateTime.isCustomDate = true;
+        std::cout << "Date set to: " << dateStr << std::endl;
+    }
+    catch (...) {
+        std::cout << "Invalid date format\n";
+    }
+}
+
+void DOSShell::handleTime(const std::string& timeStr)
+{
+    if (timeStr.empty()) {
+        char buffer[9];
+        if (dateTime.isCustomTime) {
+            sprintf(buffer, "%02d:%02d:%02d", 
+                dateTime.hour, dateTime.min, dateTime.sec);
+        } else {
+            time_t now = time(nullptr);
+            struct tm* timeinfo = localtime(&now);
+            strftime(buffer, sizeof(buffer), "%H:%M:%S", timeinfo);
+        }
+        std::cout << "Current time is: " << buffer << std::endl;
+        return;
+    }
+
+    // Validate and parse time format HH:MM:SS
+    if (timeStr.length() != 8 || timeStr[2] != ':' || timeStr[5] != ':') {
+        std::cout << "Invalid time format. Use HH:MM:SS\n";
+        return;
+    }
+
+    try {
+        int hour = std::stoi(timeStr.substr(0, 2));
+        int min = std::stoi(timeStr.substr(3, 2));
+        int sec = std::stoi(timeStr.substr(6, 2));
+
+        if (hour < 0 || hour > 23 || min < 0 || min > 59 || sec < 0 || sec > 59) {
+            std::cout << "Invalid time values\n";
+            return;
+        }
+
+        dateTime.hour = hour;
+        dateTime.min = min;
+        dateTime.sec = sec;
+        dateTime.isCustomTime = true;
+        std::cout << "Time set to: " << timeStr << std::endl;
+    }
+    catch (...) {
+        std::cout << "Invalid time format\n";
+    }
 }

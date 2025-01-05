@@ -7,8 +7,16 @@ class DOSShell {
 private:
     static constexpr const char* VALID_COMMANDS[] = {
         "DIR", "CD", "MKDIR", "RMDIR", "ECHO", "DEL", "REN",
-        "TYPE", "RUN", "HIBERNATE", "RESUME", "HELP", "EXIT", "XCOPY"
+        "TYPE", "RUN", "HIBERNATE", "RESUME", "HELP", "EXIT", "XCOPY",
+        "DATE", "TIME"  // Add these
     };
+
+    struct CustomDateTime {
+        int month, day, year;
+        int hour, min, sec;
+        bool isCustomDate;
+        bool isCustomTime;
+    } dateTime;
 
     FileNode* currentDir;
     FileNode* root;
@@ -30,6 +38,8 @@ private:
     void xcopyCommand(const std::string& source, const std::string& dest);
     FileNode* findNode(const std::string& path, FileNode* startDir);
     FileNode* copyNode(FileNode* source, FileNode* destParent);
+    void handleDate(const std::string& dateStr);
+    void handleTime(const std::string& timeStr);
 
 public:
     DOSShell();
