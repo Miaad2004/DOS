@@ -13,10 +13,8 @@ project ("CMakeProject1")
 
 # Add source to this project's executable.
 include_directories(${CMAKE_SOURCE_DIR}/include)
-add_executable (CMakeProject1 "main.cpp"  "dos_shell.cpp" "file_system.cpp" "memory_manager.cpp")
 
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET CMakeProject1 PROPERTY CXX_STANDARD 20)
-endif()
+#add_executable (CMakeProject1 "src/main.cpp"  "src/dos_shell.cpp" "src/file_system.cpp" "src/memory_manager.cpp")
 
 # TODO: Add tests and install targets if needed.
+add_subdirectory(src)
