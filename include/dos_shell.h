@@ -2,17 +2,27 @@
 #include <string>
 #include "file_system.h"
 #include "memory_manager.h"
+#include <map> // For environment variables
 
 class DOSShell {
 private:
     static constexpr const char* VALID_COMMANDS[] = {
-        "DIR", "CD", "MKDIR", "ECHO", "DEL", "REN",
-        "TYPE", "RUN", "HIBERNATE", "RESUME", "HELP", "EXIT"
+        "DIR", "CD", "MKDIR", "RMDIR", "ECHO", "DEL", "REN",
+        "TYPE", "RUN", "HIBERNATE", "RESUME", "HELP", "EXIT", "XCOPY",
+        "DATE", "TIME", "FIND", "REM", "IF"  // Added REM and IF
     };
+
+    struct CustomDateTime {
+        int month, day, year;
+        int hour, min, sec;
+        bool isCustomDate;
+        bool isCustomTime;
+    } dateTime;
 
     FileNode* currentDir;
     FileNode* root;
     MemoryManager memManager;
+    std::map<std::string, std::string> environment; // For environment variables
 
     bool isValidCommand(const std::string& cmd);
     void showHelp();
@@ -26,6 +36,16 @@ private:
     void deleteFile(const std::string& name);
     void renameFile(const std::string& oldname, const std::string& newname);
     void readFile(const std::string& name);
+    void removeDirectory(const std::string& name);
+    void xcopyCommand(const std::string& source, const std::string& dest);
+    FileNode* findNode(const std::string& path, FileNode* startDir);
+    FileNode* copyNode(FileNode* source, FileNode* destParent);
+    void handleDate(const std::string& dateStr);
+    void handleTime(const std::string& timeStr);
+    void findInFiles(const std::string& searchStr, const std::string& filename);
+    void handleRem(const std::string& comment);
+    void handleIf(std::istringstream& cmdStream);
+    void executeBlock(const std::string& block);
 
 public:
     DOSShell();

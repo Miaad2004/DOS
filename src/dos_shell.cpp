@@ -27,6 +27,7 @@ void DOSShell::showHelp()
         << "  DIR              - List directory contents\n"
         << "  CD <dir>         - Change directory\n"
         << "  MKDIR <dir>      - Create directory\n"
+        << "  RMDIR <dir>      - Remove empty directory\n"
         << "  ECHO <text>      - Display text\n"
         << "  ECHO <text> >file- Write text to file\n"
         << "  DEL <file>       - Delete file\n"
@@ -36,7 +37,11 @@ void DOSShell::showHelp()
         << "  HIBERNATE <file> - Save system state\n"
         << "  RESUME <file>    - Restore system state\n"
         << "  HELP             - Show this help\n"
-        << "  EXIT             - Exit shell\n";
+        << "  XCOPY src dest   - Copy files/directories recursively\n"
+        << "  DATE [MM-DD-YYYY]- Display/set system date\n"
+        << "  TIME [HH:MM:SS]  - Display/set system time\n"
+        << "  EXIT             - Exit shell\n"
+        << "  FIND str file    - Search for text in file(s)\n";
 }
 
 void DOSShell::runProgram(const std::string& filename)
@@ -124,6 +129,19 @@ DOSShell::DOSShell()
 {
     root = new FileNode("C:", true, &memManager);
     currentDir = root;
+    
+    // Initialize date/time
+    dateTime.isCustomDate = false;
+    dateTime.isCustomTime = false;
+    
+    time_t now = time(nullptr);
+    struct tm* timeinfo = localtime(&now);
+    dateTime.month = timeinfo->tm_mon + 1;
+    dateTime.day = timeinfo->tm_mday;
+    dateTime.year = timeinfo->tm_year + 1900;
+    dateTime.hour = timeinfo->tm_hour;
+    dateTime.min = timeinfo->tm_min;
+    dateTime.sec = timeinfo->tm_sec;
 }
 
 // Move getCurrentPath() to public section
@@ -166,7 +184,15 @@ void DOSShell::executeCommand(const std::string& cmdLine)
         return;
     }
 
-    if (command == "DIR")
+    if (command == "REM") {
+        std::string comment;
+        std::getline(iss, comment);
+        handleRem(comment);
+    }
+    else if (command == "IF") {
+        handleIf(iss);
+    }
+    else if (command == "DIR")
     {
         listDirectory();
     }
@@ -241,6 +267,40 @@ void DOSShell::executeCommand(const std::string& cmdLine)
         std::string filename;
         iss >> filename;
         runProgram(filename);
+    }
+    else if (command == "RMDIR")
+    {
+        std::string dirname;
+        iss >> dirname;
+        removeDirectory(dirname);
+    }
+    else if (command == "XCOPY") {
+        std::string source, dest;
+        iss >> source >> dest;
+        if (source.empty() || dest.empty()) {
+            std::cout << "Syntax: XCOPY source destination\n";
+        } else {
+            xcopyCommand(source, dest);
+        }
+    }
+    else if (command == "DATE") {
+        std::string dateStr;
+        std::getline(iss >> std::ws, dateStr);
+        handleDate(dateStr);
+    }
+    else if (command == "TIME") {
+        std::string timeStr;
+        std::getline(iss >> std::ws, timeStr);
+        handleTime(timeStr);
+    }
+    else if (command == "FIND") {
+        std::string searchStr, filename;
+        if (!(iss >> searchStr >> filename)) {
+            std::cout << "Syntax: FIND <string> <filename>\n";
+            std::cout << "Use *.* to search all files\n";
+            return;
+        }
+        findInFiles(searchStr, filename);
     }
 }
 
@@ -438,4 +498,333 @@ void DOSShell::resume(const std::string& filename)
     }
 
     delete[] pathBuf;
+}
+
+void DOSShell::removeDirectory(const std::string& name) {
+    // Don't allow removing . or ..
+    if (name == "." || name == "..") {
+        std::cout << "Invalid directory name\n";
+        return;
+    }
+
+    auto it = std::find_if(currentDir->children.begin(),
+        currentDir->children.end(),
+        [&](FileNode* n) { return n->name == name; });
+
+    if (it == currentDir->children.end()) {
+        std::cout << "Directory not found\n";
+        return;
+    }
+
+    FileNode* dir = *it;
+    if (!dir->isDirectory) {
+        std::cout << "Not a directory\n";
+        return;
+    }
+
+    if (!dir->children.empty()) {
+        std::cout << "Directory not empty\n";
+        return;
+    }
+
+    delete dir;
+    currentDir->children.erase(it);
+}
+
+FileNode* DOSShell::findNode(const std::string& path, FileNode* startDir) {
+    if (path.empty()) return startDir;
+    
+    std::istringstream pathStream(path);
+    std::string segment;
+    FileNode* current = startDir;
+
+    while (std::getline(pathStream, segment, '\\')) {
+        if (segment == ".") continue;
+        if (segment == "..") {
+            if (current->parent) current = current->parent;
+            continue;
+        }
+
+        bool found = false;
+        for (auto child : current->children) {
+            if (child->name == segment) {
+                current = child;
+                found = true;
+                break;
+            }
+        }
+        if (!found) return nullptr;
+    }
+    return current;
+}
+
+FileNode* DOSShell::copyNode(FileNode* source, FileNode* destParent) {
+    FileNode* newNode = new FileNode(source->name, source->isDirectory, &memManager, destParent);
+    
+    if (!source->isDirectory && source->content) {
+        strncpy(newNode->content, source->content, PAGE_SIZE);
+        memManager.markDirty(newNode->content);
+    }
+
+    // Recursively copy children
+    for (auto child : source->children) {
+        FileNode* newChild = copyNode(child, newNode);
+        newNode->children.push_back(newChild);
+    }
+
+    return newNode;
+}
+
+void DOSShell::xcopyCommand(const std::string& source, const std::string& dest) {
+    // Find source node
+    FileNode* sourceNode = findNode(source, currentDir);
+    if (!sourceNode) {
+        std::cout << "Source not found\n";
+        return;
+    }
+
+    // Find or create destination path
+    std::string destPath = dest;
+    std::string destName = sourceNode->name;
+    size_t lastSep = dest.find_last_of('\\');
+    FileNode* destParent;
+
+    if (lastSep != std::string::npos) {
+        destPath = dest.substr(0, lastSep);
+        destName = dest.substr(lastSep + 1);
+        destParent = findNode(destPath, currentDir);
+    } else {
+        destParent = currentDir;
+        destName = dest;
+    }
+
+    if (!destParent) {
+        std::cout << "Destination path not found\n";
+        return;
+    }
+
+    // Check if destination already exists
+    for (auto child : destParent->children) {
+        if (child->name == destName) {
+            std::cout << "Destination already exists\n";
+            return;
+        }
+    }
+
+    // Create copy
+    FileNode* newNode = copyNode(sourceNode, destParent);
+    newNode->name = destName;
+    destParent->children.push_back(newNode);
+
+    std::cout << "Successfully copied ";
+    std::cout << (sourceNode->isDirectory ? "directory" : "file") << "\n";
+}
+
+void DOSShell::handleDate(const std::string& dateStr)
+{
+    if (dateStr.empty()) {
+        char buffer[11];
+        if (dateTime.isCustomDate) {
+            sprintf(buffer, "%02d-%02d-%04d", 
+                dateTime.month, dateTime.day, dateTime.year);
+        } else {
+            time_t now = time(nullptr);
+            struct tm* timeinfo = localtime(&now);
+            strftime(buffer, sizeof(buffer), "%m-%d-%Y", timeinfo);
+        }
+        std::cout << "Current date is: " << buffer << std::endl;
+        return;
+    }
+
+    // Validate and parse date format MM-DD-YYYY
+    if (dateStr.length() != 10 || dateStr[2] != '-' || dateStr[5] != '-') {
+        std::cout << "Invalid date format. Use MM-DD-YYYY\n";
+        return;
+    }
+
+    try {
+        int month = std::stoi(dateStr.substr(0, 2));
+        int day = std::stoi(dateStr.substr(3, 2));
+        int year = std::stoi(dateStr.substr(6, 4));
+
+        if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) {
+            std::cout << "Invalid date values\n";
+            return;
+        }
+
+        dateTime.month = month;
+        dateTime.day = day;
+        dateTime.year = year;
+        dateTime.isCustomDate = true;
+        std::cout << "Date set to: " << dateStr << std::endl;
+    }
+    catch (...) {
+        std::cout << "Invalid date format\n";
+    }
+}
+
+void DOSShell::handleTime(const std::string& timeStr)
+{
+    if (timeStr.empty()) {
+        char buffer[9];
+        if (dateTime.isCustomTime) {
+            sprintf(buffer, "%02d:%02d:%02d", 
+                dateTime.hour, dateTime.min, dateTime.sec);
+        } else {
+            time_t now = time(nullptr);
+            struct tm* timeinfo = localtime(&now);
+            strftime(buffer, sizeof(buffer), "%H:%M:%S", timeinfo);
+        }
+        std::cout << "Current time is: " << buffer << std::endl;
+        return;
+    }
+
+    // Validate and parse time format HH:MM:SS
+    if (timeStr.length() != 8 || timeStr[2] != ':' || timeStr[5] != ':') {
+        std::cout << "Invalid time format. Use HH:MM:SS\n";
+        return;
+    }
+
+    try {
+        int hour = std::stoi(timeStr.substr(0, 2));
+        int min = std::stoi(timeStr.substr(3, 2));
+        int sec = std::stoi(timeStr.substr(6, 2));
+
+        if (hour < 0 || hour > 23 || min < 0 || min > 59 || sec < 0 || sec > 59) {
+            std::cout << "Invalid time values\n";
+            return;
+        }
+
+        dateTime.hour = hour;
+        dateTime.min = min;
+        dateTime.sec = sec;
+        dateTime.isCustomTime = true;
+        std::cout << "Time set to: " << timeStr << std::endl;
+    }
+    catch (...) {
+        std::cout << "Invalid time format\n";
+    }
+}
+
+void DOSShell::findInFiles(const std::string& searchStr, const std::string& filename) {
+    bool found = false;
+    
+    // Search in all files if filename is *.*
+    if (filename == "*.*") {
+        for (auto node : currentDir->children) {
+            if (!node->isDirectory && node->content) {
+                std::string content(node->content);
+                size_t pos = content.find(searchStr);
+                if (pos != std::string::npos) {
+                    if (!found) {
+                        found = true;
+                    }
+                    std::cout << "----- " << node->name << " -----\n";
+                    // Print lines containing the search string
+                    std::istringstream stream(content);
+                    std::string line;
+                    int lineNum = 0;
+                    while (std::getline(stream, line)) {
+                        lineNum++;
+                        if (line.find(searchStr) != std::string::npos) {
+                            std::cout << "[" << lineNum << "]: " << line << "\n";
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Search in specific file
+    else {
+        for (auto node : currentDir->children) {
+            if (!node->isDirectory && node->name == filename && node->content) {
+                std::string content(node->content);
+                size_t pos = content.find(searchStr);
+                if (pos != std::string::npos) {
+                    found = true;
+                    std::cout << "----- " << node->name << " -----\n";
+                    // Print lines containing the search string
+                    std::istringstream stream(content);
+                    std::string line;
+                    int lineNum = 0;
+                    while (std::getline(stream, line)) {
+                        lineNum++;
+                        if (line.find(searchStr) != std::string::npos) {
+                            std::cout << "[" << lineNum << "]: " << line << "\n";
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    if (!found) {
+        std::cout << "No match found\n";
+    }
+}
+
+void DOSShell::handleRem(const std::string& comment) {
+    // REM command does nothing - it's just a comment
+    // In a real implementation, you might want to store these
+    // for batch file processing
+}
+
+void DOSShell::executeBlock(const std::string& block) {
+    std::istringstream iss(block);
+    std::string cmd;
+    
+    // Get the full command including redirection
+    std::getline(iss, cmd);
+    if (!cmd.empty()) {
+        // Trim whitespace
+        cmd.erase(0, cmd.find_first_not_of(" \t"));
+        cmd.erase(cmd.find_last_not_of(" \t") + 1);
+        executeCommand(cmd);
+    }
+}
+
+void DOSShell::handleIf(std::istringstream& cmdStream) {
+    std::string condition;
+    std::string trueBlock;
+    std::string elseBlock;
+    
+    // Read the entire condition
+    std::getline(cmdStream, condition, '(');
+    
+    // Parse condition
+    size_t firstQuote = condition.find('"');
+    size_t secondQuote = condition.find('"', firstQuote + 1);
+    size_t thirdQuote = condition.find('"', secondQuote + 1);
+    size_t fourthQuote = condition.find('"', thirdQuote + 1);
+    
+    if (firstQuote == std::string::npos || secondQuote == std::string::npos ||
+        thirdQuote == std::string::npos || fourthQuote == std::string::npos) {
+        std::cout << "Invalid IF syntax\n";
+        return;
+    }
+    
+    std::string var1 = condition.substr(firstQuote + 1, secondQuote - firstQuote - 1);
+    std::string var2 = condition.substr(thirdQuote + 1, fourthQuote - thirdQuote - 1);
+    
+    // Read true block
+    std::string remainingCmd;
+    std::getline(cmdStream, remainingCmd);
+    size_t elsePos = remainingCmd.find("ELSE");
+    
+    if (elsePos != std::string::npos) {
+        trueBlock = remainingCmd.substr(0, remainingCmd.find(")"));
+        size_t elseBlockStart = remainingCmd.find("(", elsePos) + 1;
+        size_t elseBlockEnd = remainingCmd.find_last_of(")");
+        elseBlock = remainingCmd.substr(elseBlockStart, elseBlockEnd - elseBlockStart);
+    } else {
+        trueBlock = remainingCmd.substr(0, remainingCmd.find_last_of(")"));
+    }
+    
+    // Execute appropriate block
+    bool result = (var1 == var2);
+    if (result) {
+        executeBlock(trueBlock);
+    } else if (!elseBlock.empty()) {
+        executeBlock(elseBlock);
+    }
 }
