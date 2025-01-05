@@ -8,7 +8,7 @@ private:
     static constexpr const char* VALID_COMMANDS[] = {
         "DIR", "CD", "MKDIR", "RMDIR", "ECHO", "DEL", "REN",
         "TYPE", "RUN", "HIBERNATE", "RESUME", "HELP", "EXIT", "XCOPY",
-        "DATE", "TIME"  // Add these
+        "DATE", "TIME", "FIND"  
     };
 
     struct CustomDateTime {
@@ -40,6 +40,7 @@ private:
     FileNode* copyNode(FileNode* source, FileNode* destParent);
     void handleDate(const std::string& dateStr);
     void handleTime(const std::string& timeStr);
+    void findInFiles(const std::string& searchStr, const std::string& filename);
 
 public:
     DOSShell();

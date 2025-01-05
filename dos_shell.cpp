@@ -40,7 +40,8 @@ void DOSShell::showHelp()
         << "  XCOPY src dest   - Copy files/directories recursively\n"
         << "  DATE [MM-DD-YYYY]- Display/set system date\n"
         << "  TIME [HH:MM:SS]  - Display/set system time\n"
-        << "  EXIT             - Exit shell\n";
+        << "  EXIT             - Exit shell\n"
+        << "  FIND str file    - Search for text in file(s)\n";
 }
 
 void DOSShell::runProgram(const std::string& filename)
@@ -283,6 +284,15 @@ void DOSShell::executeCommand(const std::string& cmdLine)
         std::string timeStr;
         std::getline(iss >> std::ws, timeStr);
         handleTime(timeStr);
+    }
+    else if (command == "FIND") {
+        std::string searchStr, filename;
+        if (!(iss >> searchStr >> filename)) {
+            std::cout << "Syntax: FIND <string> <filename>\n";
+            std::cout << "Use *.* to search all files\n";
+            return;
+        }
+        findInFiles(searchStr, filename);
     }
 }
 
@@ -685,5 +695,62 @@ void DOSShell::handleTime(const std::string& timeStr)
     }
     catch (...) {
         std::cout << "Invalid time format\n";
+    }
+}
+
+void DOSShell::findInFiles(const std::string& searchStr, const std::string& filename) {
+    bool found = false;
+    
+    // Search in all files if filename is *.*
+    if (filename == "*.*") {
+        for (auto node : currentDir->children) {
+            if (!node->isDirectory && node->content) {
+                std::string content(node->content);
+                size_t pos = content.find(searchStr);
+                if (pos != std::string::npos) {
+                    if (!found) {
+                        found = true;
+                    }
+                    std::cout << "----- " << node->name << " -----\n";
+                    // Print lines containing the search string
+                    std::istringstream stream(content);
+                    std::string line;
+                    int lineNum = 0;
+                    while (std::getline(stream, line)) {
+                        lineNum++;
+                        if (line.find(searchStr) != std::string::npos) {
+                            std::cout << "[" << lineNum << "]: " << line << "\n";
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Search in specific file
+    else {
+        for (auto node : currentDir->children) {
+            if (!node->isDirectory && node->name == filename && node->content) {
+                std::string content(node->content);
+                size_t pos = content.find(searchStr);
+                if (pos != std::string::npos) {
+                    found = true;
+                    std::cout << "----- " << node->name << " -----\n";
+                    // Print lines containing the search string
+                    std::istringstream stream(content);
+                    std::string line;
+                    int lineNum = 0;
+                    while (std::getline(stream, line)) {
+                        lineNum++;
+                        if (line.find(searchStr) != std::string::npos) {
+                            std::cout << "[" << lineNum << "]: " << line << "\n";
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    if (!found) {
+        std::cout << "No match found\n";
     }
 }
