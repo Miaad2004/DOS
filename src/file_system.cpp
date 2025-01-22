@@ -25,6 +25,7 @@ bool isValidFilename(const std::string& name)
 {
     if (name.empty())
         return false;
+        
     if (name.length() > 12)
         return false;
 

@@ -2,14 +2,14 @@
 #include <string>
 #include "file_system.h"
 #include "memory_manager.h"
-#include <map> // For environment variables
+#include <map>
 
 class DOSShell {
 private:
     static constexpr const char* VALID_COMMANDS[] = {
         "DIR", "CD", "MKDIR", "RMDIR", "ECHO", "DEL", "REN",
         "TYPE", "RUN", "HIBERNATE", "RESUME", "HELP", "EXIT", "XCOPY",
-        "DATE", "TIME", "FIND", "REM", "IF"  // Added REM and IF
+        "DATE", "TIME", "FIND", "REM", "IF" 
     };
 
     struct CustomDateTime {
@@ -22,7 +22,7 @@ private:
     FileNode* currentDir;
     FileNode* root;
     MemoryManager memManager;
-    std::map<std::string, std::string> environment; // For environment variables
+    std::map<std::string, std::string> environment; 
     std::string expandVariables(const std::string& input);
 
     

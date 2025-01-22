@@ -14,11 +14,11 @@ private:
     char virtualMemory[PAGE_SIZE * VIRTUAL_PAGES];
 
     struct PageTableEntry {
-        bool present;     // Is page in physical memory?
-        bool dirty;       // Has page been modified?
+        bool present;     // in physical memory?
+        bool dirty;       // modified?
         int virtualPageNum;
         int physicalPageNum;
-        long lastAccess;  // For LRU
+        long lastAccess;  // LRU
     } virtualPageTable[VIRTUAL_PAGES];
 
     std::string swapFilePath;

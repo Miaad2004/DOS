@@ -50,7 +50,7 @@ void DOSShell::showHelp()
 
 void DOSShell::runProgram(const std::string &filename)
 {
-    // Validate file exists
+    // check if file exists
     FileNode *fileNode = nullptr;
     for (auto node : currentDir->children)
     {
@@ -67,20 +67,20 @@ void DOSShell::runProgram(const std::string &filename)
         return;
     }
 
-    // Validate COM extension
+    //check .COM
     if (filename.length() < 4 || filename.substr(filename.length() - 4) != ".COM")
     {
         std::cout << "Not a COM file\n";
         return;
     }
 
-    // Create a temporary file to store the content
+    // make a tmp file
     std::string tempPath = std::getenv("TEMP");
     if (tempPath.empty())
         tempPath = ".";
     std::string tempFile = tempPath + "\\" + filename;
 
-    // Write content to temporary file
+    // move to tmp file
     std::ofstream outFile(tempFile, std::ios::binary);
     if (!outFile)
     {
@@ -90,22 +90,21 @@ void DOSShell::runProgram(const std::string &filename)
     outFile.write(fileNode->content, PAGE_SIZE);
     outFile.close();
 
-    // Prepare process info
+    // Make a Process
     STARTUPINFO si = {sizeof(STARTUPINFO)};
     PROCESS_INFORMATION pi;
     ZeroMemory(&si, sizeof(si));
     ZeroMemory(&pi, sizeof(pi));
 
-    // Create process
     if (!CreateProcess(
             tempFile.c_str(), // Application name
             NULL,             // Command line args
-            NULL,             // Process handle not inheritable
-            NULL,             // Thread handle not inheritable
-            FALSE,            // Set handle inheritance
-            0,                // No creation flags
-            NULL,             // Use parent's environment block
-            NULL,             // Use parent's starting directory
+            NULL,            
+            NULL,        
+            FALSE,         
+            0,               
+            NULL,            
+            NULL,           
             &si,              // Pointer to STARTUPINFO
             &pi               // Pointer to PROCESS_INFORMATION
             ))
@@ -115,14 +114,13 @@ void DOSShell::runProgram(const std::string &filename)
         return;
     }
 
-    // Wait for program to complete
     WaitForSingleObject(pi.hProcess, INFINITE);
 
-    // Get exit code
+    // exit code
     DWORD exitCode;
     GetExitCodeProcess(pi.hProcess, &exitCode);
 
-    // Clean up
+    // remove tmp file
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
     DeleteFile(tempFile.c_str());
@@ -130,10 +128,9 @@ void DOSShell::runProgram(const std::string &filename)
     std::cout << "Program completed with exit code: " << exitCode << "\n";
 }
 
-// Add these methods to DOSShell class:
 void DOSShell::serializeFileSystem(FileNode *node, std::ofstream &file)
 {
-    // Save node properties
+    // node props
     size_t nameLen = node->name.length();
     file.write((char *)&nameLen, sizeof(nameLen));
     file.write(node->name.c_str(), nameLen);
@@ -144,7 +141,8 @@ void DOSShell::serializeFileSystem(FileNode *node, std::ofstream &file)
         file.write(node->content, PAGE_SIZE);
     }
 
-    // Save children count and recursively save children
+    // recur
+    // save n_child
     size_t childCount = node->children.size();
     file.write((char *)&childCount, sizeof(childCount));
     for (auto child : node->children)
@@ -155,7 +153,7 @@ void DOSShell::serializeFileSystem(FileNode *node, std::ofstream &file)
 
 FileNode *DOSShell::deserializeFileSystem(std::ifstream &file, FileNode *parent)
 {
-    // Read node properties
+    // read props
     size_t nameLen;
     file.read((char *)&nameLen, sizeof(nameLen));
 
@@ -175,7 +173,7 @@ FileNode *DOSShell::deserializeFileSystem(std::ifstream &file, FileNode *parent)
         file.read(node->content, PAGE_SIZE);
     }
 
-    // Read children
+    // recur 
     size_t childCount;
     file.read((char *)&childCount, sizeof(childCount));
     for (size_t i = 0; i < childCount; i++)
@@ -191,7 +189,7 @@ DOSShell::DOSShell()
     root = new FileNode("C:", true, &memManager);
     currentDir = root;
 
-    // Initialize date/time
+    // init date/time
     dateTime.isCustomDate = false;
     dateTime.isCustomTime = false;
 
@@ -205,7 +203,6 @@ DOSShell::DOSShell()
     dateTime.sec = timeinfo->tm_sec;
 }
 
-// Move getCurrentPath() to public section
 std::string DOSShell::getCurrentPath()
 {
     std::vector<std::string> paths;
@@ -408,14 +405,14 @@ void DOSShell::changeDirectory(const std::string &dir)
 
 void DOSShell::createFile(const std::string &name, const std::string &content)
 {
-    // Validate filename
+    // chk file name
     if (!isValidFilename(name))
     {
         std::cout << "Invalid filename\n";
         return;
     }
 
-    // Check if file already exists
+    // check if exists
     for (auto node : currentDir->children)
     {
         if (node->name == name)
@@ -425,7 +422,7 @@ void DOSShell::createFile(const std::string &name, const std::string &content)
         }
     }
 
-    // Create new file with parent pointer
+    // make file
     FileNode *file = new FileNode(name, false, &memManager, currentDir);
     if (!file->content)
     {
@@ -434,9 +431,9 @@ void DOSShell::createFile(const std::string &name, const std::string &content)
         return;
     }
 
-    // Copy content safely
+    // copy content
     strncpy(file->content, content.c_str(), PAGE_SIZE - 1);
-    file->content[PAGE_SIZE - 1] = '\0'; // Ensure null termination
+    file->content[PAGE_SIZE - 1] = '\0'; 
     currentDir->children.push_back(file);
 }
 
@@ -448,7 +445,7 @@ void DOSShell::createDirectory(const std::string &name)
         return;
     }
 
-    // Check if directory already exists
+    // check if exists
     for (auto node : currentDir->children)
     {
         if (node->name == name)
@@ -484,7 +481,7 @@ void DOSShell::renameFile(const std::string &oldname, const std::string &newname
         return;
     }
 
-    // Check if new name already exists
+    // Check if exists
     for (auto node : currentDir->children)
     {
         if (node->name == newname)
@@ -522,13 +519,13 @@ void DOSShell::hibernate(const std::string &filename)
 {
     std::ofstream file(filename, std::ios::binary);
 
-    // Save memory state
+    // save mem state
     memManager.hibernate(filename + ".mem");
 
-    // Save file system state
+    // save FS
     serializeFileSystem(root, file);
 
-    // Save current directory path
+    // save curr dir
     std::string currentPath = getCurrentPath();
     size_t pathLen = currentPath.length();
     file.write((char *)&pathLen, sizeof(pathLen));
@@ -539,23 +536,23 @@ void DOSShell::resume(const std::string &filename)
 {
     std::ifstream file(filename, std::ios::binary);
 
-    // Restore memory state
+    // get mem state
     memManager.resume(filename + ".mem");
 
-    // Delete old file system
+    // delete old FS
     delete root;
 
-    // Restore file system
+    // get new FS
     root = deserializeFileSystem(file, nullptr);
 
-    // Restore current directory
+    // get curr dir
     size_t pathLen;
     file.read((char *)&pathLen, sizeof(pathLen));
     char *pathBuf = new char[pathLen + 1];
     file.read(pathBuf, pathLen);
     pathBuf[pathLen] = '\0';
 
-    // Navigate to saved path
+    // go to saved path
     currentDir = root;
     std::string path(pathBuf);
     std::stringstream ss(path);
@@ -573,7 +570,7 @@ void DOSShell::resume(const std::string &filename)
 
 void DOSShell::removeDirectory(const std::string &name)
 {
-    // Don't allow removing . or ..
+    // removing . or .. not allowed !
     if (name == "." || name == "..")
     {
         std::cout << "Invalid directory name\n";
@@ -654,7 +651,7 @@ FileNode *DOSShell::copyNode(FileNode *source, FileNode *destParent)
         memManager.markDirty(newNode->content);
     }
 
-    // Recursively copy children
+    // recur to cpy children
     for (auto child : source->children)
     {
         FileNode *newChild = copyNode(child, newNode);
@@ -737,7 +734,7 @@ void DOSShell::handleDate(const std::string &dateStr)
         return;
     }
 
-    // Validate and parse date format MM-DD-YYYY
+    // validate (format MM-DD-YYYY)
     if (dateStr.length() != 10 || dateStr[2] != '-' || dateStr[5] != '-')
     {
         std::cout << "Invalid date format. Use MM-DD-YYYY\n";
@@ -789,7 +786,7 @@ void DOSShell::handleTime(const std::string &timeStr)
         return;
     }
 
-    // Validate and parse time format HH:MM:SS
+    // validate (format HH:MM:SS)
     if (timeStr.length() != 8 || timeStr[2] != ':' || timeStr[5] != ':')
     {
         std::cout << "Invalid time format. Use HH:MM:SS\n";
@@ -825,7 +822,7 @@ void DOSShell::findInFiles(const std::string &searchStr, const std::string &file
 {
     bool found = false;
 
-    // Search in all files if filename is *.*
+    // if *.* => search in all files
     if (filename == "*.*")
     {
         for (auto node : currentDir->children)
@@ -842,7 +839,8 @@ void DOSShell::findInFiles(const std::string &searchStr, const std::string &file
                     }
 
                     std::cout << "----- " << node->name << " -----\n";
-                    // Print lines containing the search string
+
+                    // print the lines that the string is found in
                     std::istringstream stream(content);
                     std::string line;
                     int lineNum = 0;
@@ -860,7 +858,7 @@ void DOSShell::findInFiles(const std::string &searchStr, const std::string &file
         }
     }
 
-    // Search in specific file
+    // search in specific file
     else
     {
         for (auto node : currentDir->children)
@@ -873,7 +871,8 @@ void DOSShell::findInFiles(const std::string &searchStr, const std::string &file
                 {
                     found = true;
                     std::cout << "----- " << node->name << " -----\n";
-                    // Print lines containing the search string
+
+                    // print the lines that the string is found in
                     std::istringstream stream(content);
                     std::string line;
                     int lineNum = 0;
@@ -896,7 +895,7 @@ void DOSShell::findInFiles(const std::string &searchStr, const std::string &file
     }
 }
 
-// Add helper trim function
+// string trimmer
 std::string trim(const std::string &str)
 {
     size_t first = str.find_first_not_of(" \t");
@@ -904,37 +903,29 @@ std::string trim(const std::string &str)
     return str.substr(first, (last - first + 1));
 }
 
-// Update the existing expandVariables() function in dos_shell.cpp:
 std::string DOSShell::expandVariables(const std::string &input)
 {
     std::string result = input;
     size_t pos = 0;
-
-    // Debug input
-    // std::cout << "Expanding variables in: [" << input << "]\n";
 
     while ((pos = result.find('%', pos)) != std::string::npos)
     {
         size_t endPos = result.find('%', pos + 1);
         if (endPos != std::string::npos)
         {
-            // Extract variable name without %
+            // get var names without %
             std::string varName = result.substr(pos + 1, endPos - pos - 1);
             varName.erase(0, varName.find_first_not_of(" \t"));
             varName.erase(varName.find_last_not_of(" \t") + 1);
-
-            // std::cout << "Found variable reference: [" << varName << "]\n";
 
             auto it = environment.find(varName);
             if (it != environment.end())
             {
                 result.replace(pos, endPos - pos + 1, it->second);
-                // std::cout << "Replaced with value: [" << it->second << "]\n";
                 pos += it->second.length();
             }
             else
             {
-                // std::cout << "Variable not found in environment\n";
                 pos = endPos + 1;
             }
         }
@@ -944,21 +935,20 @@ std::string DOSShell::expandVariables(const std::string &input)
         }
     }
 
-    // std::cout << "Final expanded result: [" << result << "]\n";
     return result;
 }
 
 void DOSShell::handleRem(const std::string &comment)
 {
-    // First trim leading/trailing whitespace from comment
+    // trim str
     std::string trimmedComment = comment;
     trimmedComment.erase(0, trimmedComment.find_first_not_of(" \t"));
     trimmedComment.erase(trimmedComment.find_last_not_of(" \t") + 1);
 
-    // Check for SET command
+    // check for SET cmd
     if (trimmedComment.substr(0, 3) == "SET")
     {
-        // Extract everything after "SET"
+        // get everything after SET
         std::string setCmd = trimmedComment.substr(3);
         setCmd.erase(0, setCmd.find_first_not_of(" \t"));
 
@@ -984,11 +974,11 @@ void DOSShell::executeBlock(const std::string &block)
     std::istringstream iss(block);
     std::string cmd;
 
-    // Get the full command including redirection
+    // Get the full cmd including redirection
     std::getline(iss, cmd);
     if (!cmd.empty())
     {
-        // Trim whitespace
+        // trim
         cmd.erase(0, cmd.find_first_not_of(" \t"));
         cmd.erase(cmd.find_last_not_of(" \t") + 1);
         executeCommand(cmd);
