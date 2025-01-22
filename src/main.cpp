@@ -10,14 +10,10 @@ int main()
     std::cout << "Mini-DOS Shell\n";
     std::cout << "Type 'exit' to quit\n\n";
 
-    while (true)
+    while (!shell.getShouldExit())
     {
         std::cout << shell.getCurrentPath() << ">";
         std::getline(std::cin, command);
-
-        if (command == "exit")
-            break;
-
         shell.executeCommand(command);
     }
 

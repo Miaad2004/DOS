@@ -25,7 +25,7 @@ private:
     std::map<std::string, std::string> environment; 
     std::string expandVariables(const std::string& input);
 
-    
+    bool shouldExit;
 
     bool isValidCommand(const std::string& cmd);
     void showHelp();
@@ -56,4 +56,5 @@ public:
     void executeCommand(const std::string& cmdLine);
     void hibernate(const std::string& filename);
     void resume(const std::string& filename);
+    bool getShouldExit() const { return shouldExit; }
 };
