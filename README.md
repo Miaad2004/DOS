@@ -81,6 +81,7 @@ Date set to: 03-11-2025
 ```  
 
 ## Contributors
-- **Amir Taha Najaf**
-- **Miad Kimiyagari**
+- [Amir Taha Najaf](https://github.com/taha-najaf)
+- [Miaad Kimigari](https://github.com/Miaad2004)
+
 
