@@ -40,23 +40,6 @@ The shell supports the following commands:
 | `RESUME` | Restores the system from a saved state. |
 | `HELP`   | Displays available commands and their descriptions. |
 
-## Installation & Usage
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/ms-dos-shell.git
-   ```
-2. Navigate to the project directory:
-   ```bash
-   cd ms-dos-shell
-   ```
-3. Compile the project:
-   ```bash
-   g++ -o shell main.cpp
-   ```
-4. Run the shell:
-   ```bash
-   ./shell
-   ```
 
 ## Example Usage
 ```bash
