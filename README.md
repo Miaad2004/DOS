@@ -42,43 +42,8 @@ The shell supports the following commands:
 
 
 ## Example Usage
-```bash
-> MKDIR myFolder
-> CD myFolder
-> ECHO "Hello World" > file.txt
-> TYPE file.txt
-Hello World
+![image](https://github.com/user-attachments/assets/3d6eb3c4-edad-4f84-a7ca-d1ce35bb3bf2)
 
-> MKDIR projects
-> CD projects
-> ECHO "Project 1" > project1.txt
-> DIR
-project1.txt <FILE>
-
-> CD ..
-> RMDIR projects
-Directory not empty
-
-> DEL projects/project1.txt
-> RMDIR projects
-Directory removed
-
-> ECHO "This is a test" > test.txt
-> FIND "test" test.txt
------ test.txt -----
-[1]: This is a test
-
-> XCOPY test.txt backup.txt
-Successfully copied file
-> TYPE backup.txt
-This is a test
-
-> TIME 14:30:00
-Time set to: 14:30:00
-
-> DATE 03-11-2025
-Date set to: 03-11-2025
-```  
 
 ## Contributors
 - [Amir Taha Najaf](https://github.com/taha-najaf)
